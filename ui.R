@@ -14,12 +14,20 @@ shinyUI(fluidPage(
   
   ## OUTPUT
   
-  fluidRow(column(12,h2(verbatimTextOutput("PERC"))),
-           h2("Plot of controls... check for evenness"),
-                  plotOutput(outputId="figControl",width = "50%")),
-  fluidRow(h2("These Items were higher than the selected Normalized yield"),
-           plotOutput(outputId="fig1")),
-  fluidRow(h2("List of Items higher than selected Normalized yield"),
-           downloadButton('downloadData', 'Download'),
-           dataTableOutput(outputId="table1"))
+  if(!is.na(a)){
+    fluidRow(
+      column(3,h2("Plot of controls... check for evenness"),
+                    plotOutput(outputId="figControl")),
+      column(6,h2("These Items were higher than the selected Normalized yield"),
+             h2(verbatimTextOutput("PERC")),
+             plotOutput(outputId="fig1")),
+      column(3,h2("Trials over control"),
+             h4("Green are trials, brown is controls"),
+             plotlyOutput("Plot3", height = "600px"))
+      )},
+  if(!is.na(a)){
+    fluidRow(h2("List of Items higher than selected Normalized yield"),
+             downloadButton('downloadData', 'Download',),
+             dataTableOutput(outputId="table1"))
+  }
 ))

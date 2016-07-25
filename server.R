@@ -52,45 +52,19 @@ shinyServer(function(input, output) {
     s.nz <- Cont[idx]
     ControlValues <- data.frame(idx,s.nz)
     
-    ## Make data.frame of other values
-    toFill <- which(Cont == 0, arr.ind=TRUE) %>% as.data.frame
-    toFill$V <- 0
+    NewCont <- interp(x=ControlValues$row,y = ControlValues$col,z = ControlValues$s.nz,
+                      xo = 1:nrow(Cont),yo = 1:ncol(Cont),extrap = T)[[3]]
     
-    for (i in 1:nrow(toFill)){
-      toFill[i,] -> CurrentPoint
-      
-      Xs <- (1/abs(CurrentPoint[,1] - ControlValues[,1])) 
-      Xs[is.infinite(Xs)] <- 0
-      Xs <- Xs/sum(Xs)
-      
-      Ys <- (1/abs(CurrentPoint[,2] - ControlValues[,2])) 
-      Ys[is.infinite(Ys)] <- 0
-      Ys <- Ys/sum(Ys)
-      
-      ControlValues1 <- data.frame(Xs,Ys)
-      toFill[i,3] <- sum(rowMeans(ControlValues1) * ControlValues$s.nz)
-    }
-    NewCont <- matrix(toFill$V,max(toFill$row),max(toFill$col),byrow = T)
-    plot_ly(z=NewCont, type="surface",showscale=FALSE) 
-    plot_ly(z=NewCont, type="surface",showscale=FALSE) %>%
-      add_trace(z=Cont, type="surface", showscale=FALSE, colors = terrain.colors(3) )
+    # ##Ensure the surface matches controls
+    # plot_ly(z=NewCont, type="surface",showscale=FALSE) %>%
+    #   add_trace(z=Cont, type="surface", showscale=FALSE, colors = terrain.colors(3))
     
-    # # InterpolatedControls <-  interp.new(idx[,1], idx[,2], s.nz, xo=1:MaxRow, yo=1:MaxCol, extrap=TRUE)
-    # InterpolatedControls <- interp(idx[,1], idx[,2],s.nz)
-    # Cont <- matrix(InterpolatedControls$z,MaxRow,MaxCol)
-    
-    ## Calculate the matrix of the difference b/w the control and the yields
-    z <- s-Cont
-    
-    #   ## Plot surfaces
-    #   persp( z=Cont, theta = 50, phi = 30, expand = 0.1, col = "lightblue")
-    #   persp( z=s, theta = 50, phi = 30, expand = 0.1, col = "red")
-    plot_ly(z=Cont, type="surface",showscale=FALSE) 
+    ## Plot Yields over control surfaces
     plot_ly(z=s, type="surface",showscale=FALSE) %>%
-      add_trace(z=Cont, type="surface", showscale=FALSE, colors = terrain.colors(3) )
+      add_trace(z=NewCont, type="surface", showscale=FALSE, colors = terrain.colors(3) )
     
     ## Generate difference of surfaces
-    Difference <- as.numeric(as.character(s-Cont))
+    Difference <- as.numeric(as.character(s-NewCont))
     
     # Spit out a df of best yields (using userinput)
     data.frame(EntryNumber = a$Entr,
@@ -106,13 +80,59 @@ shinyServer(function(input, output) {
       arrange(desc(NormalizedYield)) %>% 
       filter(NormalizedYield>input$slider1) 
   })
+  
+  
+  
+  
+  
     
   ## ------------------------------- OUTPUTSSSSSSSSSSSSSSSSS
+  output$Plot3 <- renderPlotly({
+    a <- a()
+    a %>%
+      select(Entr,Row,Col,KgHa, Cruza) -> b
+    
+    
+    ## Identify controls
+    b$Control[b$Entr%%input$num == 0] <- 1
+    # b$Control[b$Entr%%10==0] <- 1 ## Control every 10
+    b$Control[is.na(b$Control)] <- 0
+    
+    ## Isolate controls
+    b$Yield2[b$Control==1] <- b$KgHa[b$Control==1]
+    if(sum(is.na(b$Yield2))!=0){b$Yield2[is.na(b$Yield2)] <- 0}
+    ## ALL DATA
+    MaxCol <- max(a$Col)
+    MaxRow <- max(a$Row)
+    s <- matrix(a$KgHa,MaxRow,MaxCol,byrow = T)
+    
+    ## Matrix of just controls
+    Cont <- matrix(b$Yield2,MaxRow,MaxCol,byrow = T)
+    
+    ## Interpolate empty data ----------------
+    ## First get real control values
+    idx <- which(Cont > 0, arr.ind=TRUE)
+    s.nz <- Cont[idx]
+    ControlValues <- data.frame(idx,s.nz)
+    
+    NewCont <- interp(x=ControlValues$row,y = ControlValues$col,z = ControlValues$s.nz,
+                      xo = 1:nrow(Cont),yo = 1:ncol(Cont),extrap = T)[[3]]
+    
+    # ##Ensure the surface matches controls
+    # plot_ly(z=NewCont, type="surface",showscale=FALSE) %>%
+    #   add_trace(z=Cont, type="surface", showscale=FALSE, colors = terrain.colors(3))
+    
+    ## Plot Yields over control surfaces
+    gg <- plot_ly(z=s, type="surface",showscale=FALSE) %>%
+      add_trace(z=NewCont, type="surface", showscale=FALSE, colors = terrain.colors(3))
+    gg
+  })
+  
   output$PERC <- renderText({
-      a <- a()
-      FinalDF <- FinalDF()
-      paste("Selection represents ",round(nrow(FinalDF)/nrow(a) * 100,1),"% of the dataset (having removed controls)",sep="")
-      # names(a)  
+    a <- a()
+    FinalDF <- FinalDF()
+    paste("Selection represents ",round(nrow(FinalDF)/nrow(a) * 100,1),"% of the dataset (having removed controls)",sep="")
+    # names(a)  
   })
     
   output$fig1 <- renderPlot({
